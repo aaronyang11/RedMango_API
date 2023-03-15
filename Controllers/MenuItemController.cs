@@ -43,6 +43,7 @@ namespace RedMango_API.Controllers
             if(id == 0)
             {
                 _response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                _response.IsSuccess = false;
                 return BadRequest(_response);
             }
             MenuItem menuItem = _db.MenuItems.FirstOrDefault(u => u.Id == id);
@@ -63,7 +64,10 @@ namespace RedMango_API.Controllers
                 {
                     if(menuItemCreateDTO.File == null || menuItemCreateDTO.File.Length == 0)
                     {
-                        return BadRequest("Image is required");
+                        _response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                        _response.IsSuccess = false;
+                        _response.ErrorMessages = new List<string>() { "Image is required" };
+                        return BadRequest(_response);
                     }
                     string fileName = $"{Guid.NewGuid()}{Path.GetExtension(menuItemCreateDTO.File.FileName)}";
                     MenuItem menuItemToCreate = new()
@@ -107,13 +111,17 @@ namespace RedMango_API.Controllers
                 {
                     if(menuItemUpdateDTO == null || id != menuItemUpdateDTO.Id)
                     {
-                        return BadRequest();
+                        _response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                        _response.IsSuccess = false;
+                        return BadRequest(_response);
                     }
 
                     MenuItem menuItemFromDb = await _db.MenuItems.FindAsync(id);
                     if(menuItemFromDb == null)
                     {
-                        return BadRequest();
+                        _response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                        _response.IsSuccess = false;
+                        return BadRequest(_response);
                     }
 
                     if (menuItemUpdateDTO.File != null && menuItemUpdateDTO.File.Length > 0)
@@ -154,13 +162,17 @@ namespace RedMango_API.Controllers
                 
                 if (id == 0)
                 {
-                    return BadRequest();
+                    _response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                    _response.IsSuccess = false;
+                    return BadRequest(_response);
                 }
 
                 MenuItem menuItemFromDb = await _db.MenuItems.FindAsync(id);
                 if (menuItemFromDb == null)
                 {
-                    return BadRequest();
+                    _response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                    _response.IsSuccess = false;
+                    return BadRequest(_response);
                 }
 
                 await _blobService.DeleteBlob(menuItemFromDb.Image.Split("/").Last(), SD.SD_Storage_Container);

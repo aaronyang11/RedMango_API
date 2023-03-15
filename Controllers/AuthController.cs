@@ -33,7 +33,7 @@ namespace RedMango_API.Controllers
             _roleManager = roleManager;
         }
 
-        [HttpPost]
+        [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody]RegisterRequestDTO registerRequestDTO)
         {
             ApplicationUser userFromDb = _db.ApplicationUsers
@@ -87,6 +87,42 @@ namespace RedMango_API.Controllers
             _response.ErrorMessages.Add("Error while registering");
             return BadRequest(_response);
 
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequestDTO loginRequestDTO)
+        {
+            ApplicationUser userFromDb = _db.ApplicationUsers.FirstOrDefault(u => u.UserName.ToLower() == loginRequestDTO.UserName.ToLower());
+            bool isValid = await _userManager.CheckPasswordAsync(userFromDb, loginRequestDTO.Password);
+            if (!isValid)
+            {
+                _response.Result = new LoginResponseDTO();
+                _response.StatusCode = HttpStatusCode.BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Username or password is incorrect!");
+                return BadRequest(_response);
+            }
+
+            //generate JWT Token
+            LoginResponseDTO loginResponseDTO = new()
+            {
+
+                Email = userFromDb.Email,
+                Token = "***"
+            };
+
+            if(loginResponseDTO.Email == null || string.IsNullOrEmpty(loginResponseDTO.Token))
+            {
+                _response.Result = new LoginResponseDTO();
+                _response.StatusCode = HttpStatusCode.BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Username or password is incorrect!");
+                return BadRequest(_response);
+            }
+            _response.StatusCode = HttpStatusCode.OK;
+            _response.IsSuccess = true;
+            _response.Result = loginResponseDTO;
+            return Ok(_response);
         }
     }
 }

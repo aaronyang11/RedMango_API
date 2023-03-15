@@ -30,10 +30,14 @@
     <None Remove="Data\" />
     <None Remove="Model\" />
     <None Remove="Services\" />
+    <None Remove="Model\DTO\" />
+    <None Remove="Utility\" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Data\" />
     <Folder Include="Model\" />
     <Folder Include="Services\" />
+    <Folder Include="Model\DTO\" />
+    <Folder Include="Utility\" />
   </ItemGroup>
 </Project>

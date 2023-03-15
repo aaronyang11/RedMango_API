@@ -1,25 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Threading.Tasks;
-using Azure;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using RedMango_API.Data;
 using RedMango_API.Model;
 using RedMango_API.Model.DTO;
 using RedMango_API.Services;
 using RedMango_API.Utility;
+using System.IdentityModel.Tokens.Jwt;
+using System.Net;
+using System.Security.Claims;
+using System.Text;
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace RedMango_API.Controllers
 {
     [Route("api/auth")]
-    public class AuthController : Controller
+    [ApiController]
+    public class AuthController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
-        private string _secretKey;
+        private string secretKey;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private ApiResponse _response;
@@ -27,10 +28,67 @@ namespace RedMango_API.Controllers
         public AuthController(ApplicationDbContext db, IConfiguration configuration, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
         {
             _db = db;
-            _secretKey = configuration.GetValue<string>("ApiSettings: Secret");
+            secretKey = configuration.GetValue<string>("ApiSettings:Secret");
             _response = new ApiResponse();
             _userManager = userManager;
             _roleManager = roleManager;
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequestDTO loginRequestDTO)
+        {
+            ApplicationUser userFromDb = _db.ApplicationUsers
+                .FirstOrDefault(u => u.UserName.ToLower() == loginRequestDTO.UserName.ToLower());
+            bool isValid = await _userManager.CheckPasswordAsync(userFromDb, loginRequestDTO.Password);
+            if (isValid == false)
+            {
+                _response.Result = new LoginResponseDTO();
+                _response.StatusCode = HttpStatusCode.BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Username or password is incorrect!");
+                return BadRequest(_response);
+            }
+
+            //generate JWT Token
+            var roles = await _userManager.GetRolesAsync(userFromDb);
+            JwtSecurityTokenHandler tokenHandler = new();
+            byte[] key = Encoding.ASCII.GetBytes(secretKey);
+
+            SecurityTokenDescriptor tokenDescriptor = new()
+            {
+                Subject = new ClaimsIdentity(new Claim[]
+                {
+                    new Claim("fullName", userFromDb.Name),
+                    new Claim("id", userFromDb.Id.ToString()),
+                    new Claim(ClaimTypes.Email, userFromDb.UserName.ToString()),
+                    new Claim(ClaimTypes.Role, roles.FirstOrDefault())
+
+                }),
+                Expires = DateTime.UtcNow.AddDays(7),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            SecurityToken token = tokenHandler.CreateToken(tokenDescriptor);
+
+            LoginResponseDTO loginResponseDTO = new()
+            {
+
+                Email = userFromDb.Email,
+                Token = tokenHandler.WriteToken(token)
+            };
+
+            if (loginResponseDTO.Email == null || string.IsNullOrEmpty(loginResponseDTO.Token))
+            {
+                _response.Result = new LoginResponseDTO();
+                _response.StatusCode = HttpStatusCode.BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Username or password is incorrect!");
+                return BadRequest(_response);
+            }
+            _response.StatusCode = HttpStatusCode.OK;
+            _response.IsSuccess = true;
+            _response.Result = loginResponseDTO;
+            return Ok(_response);
         }
 
         [HttpPost("register")]
@@ -89,41 +147,6 @@ namespace RedMango_API.Controllers
 
         }
 
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequestDTO loginRequestDTO)
-        {
-            ApplicationUser userFromDb = _db.ApplicationUsers.FirstOrDefault(u => u.UserName.ToLower() == loginRequestDTO.UserName.ToLower());
-            bool isValid = await _userManager.CheckPasswordAsync(userFromDb, loginRequestDTO.Password);
-            if (!isValid)
-            {
-                _response.Result = new LoginResponseDTO();
-                _response.StatusCode = HttpStatusCode.BadRequest;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add("Username or password is incorrect!");
-                return BadRequest(_response);
-            }
-
-            //generate JWT Token
-            LoginResponseDTO loginResponseDTO = new()
-            {
-
-                Email = userFromDb.Email,
-                Token = "***"
-            };
-
-            if(loginResponseDTO.Email == null || string.IsNullOrEmpty(loginResponseDTO.Token))
-            {
-                _response.Result = new LoginResponseDTO();
-                _response.StatusCode = HttpStatusCode.BadRequest;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add("Username or password is incorrect!");
-                return BadRequest(_response);
-            }
-            _response.StatusCode = HttpStatusCode.OK;
-            _response.IsSuccess = true;
-            _response.Result = loginResponseDTO;
-            return Ok(_response);
-        }
     }
 }
 

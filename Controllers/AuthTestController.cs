@@ -23,7 +23,7 @@ namespace RedMango_API.Controllers
         [Authorize(Roles = SD.Role_Admin)]
         public async Task<ActionResult<string>> GetSomething(int someValue)
         {
-            return "You are authorized with role of admin";
+            return "You are authorized with the role of admin";
         }
     }
 }
